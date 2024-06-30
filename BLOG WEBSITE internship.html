@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Blog</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f4f4;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    li {
+      background: #fff;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    a {
+      text-decoration: none;
+      color: #007BFF;
+      font-weight: bold;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    form {
+      background: #fff;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      max-width: 600px;
+      margin: 20px auto;
+    }
+    input[type="text"], textarea {
+      width: calc(100% - 22px);
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    textarea {
+      height: 100px;
+    }
+    button {
+      display: inline-block;
+      background: #007BFF;
+      color: #fff;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .post-content h1 {
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Blog</h1>
+  <ul id="post-list"></ul>
+  <form id="new-post-form">
+    <input type="text" id="title" placeholder="Title" required>
+    <textarea id="content" placeholder="Content" required></textarea>
+    <button id="create-post-btn">Create Post</button>
+  </form>
+
+  <script>
+    const express = require('express');
+    const mongoose = require('mongoose');
+    const bodyParser = require('body-parser');
+    const ejs = require('ejs');
+
+    const app = express();
+    mongoose.connect('mongodb://localhost/blog', { useNewUrlParser: true, useUnifiedTopology: true });
+    app.set('view engine', 'ejs');
+    app.use(bodyParser.urlencoded({ extended: true }));
+    app.use(express.static('public'));
+    const postSchema = new mongoose.Schema({
+      title: String,
+      content: String,
+      createdAt: { type: Date, default: Date.now }
+    });
+    const Post = mongoose.model('Post', postSchema);
+    app.get('/', async (req, res) => {
+      const posts = await Post.find().sort({ createdAt: -1 });
+      let html = '';
+      posts.forEach(post => {
+        html += <li><a href="/${post._id}">${post.title}</a></li>;
+      });
+      document.getElementById('post-list').innerHTML = html;
+    });
+    app.get('/:id', async (req, res) => {
+      const post = await Post.findById(req.params.id);
+      const html = `
+        <div class="post-content">
+          <h1>${post.title}</h1>
+          <p>${post.content}</p>
+          <form action="/${post._id}?_method=PUT" method="post">
+            <input type="text" name="title" value="${post.title}">
+            <textarea name="content">${post.content}</textarea>
+            <button type="submit">Update Post</button>
+          </form>
+          <form action="/${post._id}?_method=DELETE" method="post">
+            <button type="submit">Delete Post</button>
+          </form>
+        </div>
+      `;
+      document.body.innerHTML = html;
+    });
+    document.getElementById('create-post-btn').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('title').value;
+      const content = document.getElementById('content').value;
+      const post = new Post({ title, content });
+      await post.save();
+      window.location.href = '/';
+    });
+    app.put('/:id', async (req, res) => {
+      const post = await Post.findByIdAndUpdate(req.params.id, req.body, { new: true });
+      window.location.href = '/';
+    });
+    app.delete('/:id', async (req, res) => {
+      await Post.findByIdAndRemove(req.params.id);
+      window.location.href = '/';
+    });
+    app.listen(3000, () => {
+      console.log('Server started on port 3000');
+    });
+  </script>
+</body>
+</html>
